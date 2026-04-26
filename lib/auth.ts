@@ -60,10 +60,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
 
   session: {
-    // "database" strategy stores sessions in the sessions table.
-    // "jwt" keeps sessions in a signed cookie — no DB read per request.
-    // We use database so sessions can be invalidated server-side.
-    strategy: "database",
+    // NextAuth v5 beta: Credentials provider only works with JWT sessions.
+    // "database" strategy cannot store Credentials sessions — use "jwt" for
+    // both providers so the cookie always works. OAuth user rows are still
+    // created in the DB via the adapter; only the session storage differs.
+    strategy: "jwt",
   },
 
   pages: {
@@ -72,9 +73,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 
   callbacks: {
-    // Expose the user id on the session object so we can use it in API routes.
-    async session({ session, user }) {
-      session.user.id = user.id
+    // On first sign-in (any provider) persist id and image into the token.
+    // name/email are already stored as standard JWT claims automatically.
+    async jwt({ token, user }) {
+      if (user) {
+        token.id    = user.id
+        token.image = (user as { image?: string | null }).image ?? null
+      }
+      return token
+    },
+
+    // Expose id and image on the session so server components can use them.
+    // token.image is set by the jwt callback for Credentials users.
+    // token.picture is the standard JWT claim NextAuth auto-fills from
+    // user.image for OAuth providers (Google/GitHub) — fall back to it.
+    async session({ session, token }) {
+      session.user.id    = token.id as string
+      session.user.image = (token.image ?? token.picture ?? null) as string | null
       return session
     },
   },

@@ -2,24 +2,22 @@
 
 import { signIn } from "@/lib/auth"
 import { AuthError } from "next-auth"
-import { redirect } from "next/navigation"
 import bcrypt from "bcryptjs"
 import sql from "@/lib/db"
 
 export async function signInAction(formData: FormData) {
   try {
     await signIn("credentials", {
-      email:    formData.get("email"),
-      password: formData.get("password"),
-      redirect: false,
+      email:      formData.get("email"),
+      password:   formData.get("password"),
+      redirectTo: "/",
     })
   } catch (error) {
     if (error instanceof AuthError) {
       return { error: "Invalid email or password." }
     }
-    throw error
+    throw error // re-throw NEXT_REDIRECT so Next.js performs the redirect
   }
-  redirect("/")
 }
 
 export async function signInWithGoogle() {
@@ -49,12 +47,15 @@ export async function signUpAction(formData: FormData) {
     VALUES (${name || null}, ${email}, ${passwordHash})
   `
 
-  // Immediately sign them in after registration
+  // Immediately sign them in after registration.
+  // Using redirectTo (not redirect:false) so Auth.js sends the session cookie
+  // along with the redirect response — the only reliable way in server actions.
   try {
-    await signIn("credentials", { email, password, redirect: false })
-  } catch {
-    return { error: "Account created but sign-in failed. Please sign in manually." }
+    await signIn("credentials", { email, password, redirectTo: "/" })
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return { error: "Account created but sign-in failed. Please sign in manually." }
+    }
+    throw error // re-throw NEXT_REDIRECT so Next.js can perform the redirect
   }
-
-  redirect("/")
 }

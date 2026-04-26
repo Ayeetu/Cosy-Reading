@@ -10,19 +10,25 @@ export default async function Page() {
   const session = await auth()
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-4 p-6">
+    <div className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-4 px-4 py-20 sm:px-6">
       {session ? (
         // User is logged in — session.user comes from the session table in Neon
         <div className="flex flex-col items-center gap-3 text-center">
-          {session.user.image && (
+              {session.user.image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={session.user.image}
               alt="avatar"
               className="h-16 w-16 rounded-full"
             />
+          ) : (
+            <div className="bg-muted text-muted-foreground flex h-16 w-16 items-center justify-center rounded-full text-2xl font-semibold uppercase">
+              {(session.user.name ?? session.user.email ?? "?")[0]}
+            </div>
           )}
-          <p className="text-xl font-semibold">{session.user.name}</p>
+          <p className="text-xl font-semibold">
+            {session.user.name ?? session.user.email?.split("@")[0]}
+          </p>
           <p className="text-muted-foreground text-sm">{session.user.email}</p>
           <p className="text-muted-foreground font-mono text-xs">id: {session.user.id}</p>
 
