@@ -11,7 +11,8 @@
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "seed": "tsx scripts/seed.ts",
-    "db:migrate": "psql $DATABASE_URL -f schema.sql"
+    "db:migrate": "psql $DATABASE_URL -f schema.sql",
+    "books:download": "tsx scripts/download-books.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
