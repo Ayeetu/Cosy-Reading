@@ -2,6 +2,7 @@ import Link from "next/link"
 import { auth, signOut } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import MobileMenu from "@/components/mobile-menu"
+import ReadLaterButton from "@/components/read-later-button"
 import ThemeToggle from "@/components/theme-toggle"
 
 export default async function Header() {
@@ -17,7 +18,7 @@ export default async function Header() {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
         {/* Logo */}
         <Link
-          href="/"
+          href="/books"
           className="text-foreground text-lg font-semibold tracking-tight"
         >
           Cosy Reading
@@ -33,7 +34,9 @@ export default async function Header() {
 
           {session ? (
             <div className="flex items-center gap-2 ml-2">
-              <Link href="/" className="flex items-center gap-2 rounded-full pr-1 hover:opacity-80 transition-opacity">
+              <ReadLaterButton />
+
+              <Link href="/dashboard" className="flex items-center gap-2 rounded-full pr-1 hover:opacity-80 transition-opacity">
                 {session.user.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

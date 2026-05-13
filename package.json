@@ -4,15 +4,16 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "seed": "tsx scripts/seed.ts",
-    "db:migrate": "psql $DATABASE_URL -f schema.sql",
-    "books:download": "tsx scripts/download-books.ts"
+    "db:migrate": "tsx scripts/migrate.ts",
+    "books:download": "tsx scripts/download-books.ts",
+    "ratings:update": "tsx scripts/update-goodreads-ratings.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

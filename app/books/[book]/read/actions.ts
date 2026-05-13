@@ -1,14 +1,17 @@
 "use server"
 
 import { auth } from "@/lib/auth"
+import { ensureBookRecord } from "@/lib/book-records"
 import sql from "@/lib/db"
 
-export async function getReadingProgress(slug: string): Promise<{ cfi: string | null; percentage: number } | null> {
+export async function getReadingProgress(
+  slug: string,
+): Promise<{ cfi: string | null; percentage: number; lastReadAt: string } | null> {
   const session = await auth()
   if (!session?.user?.email) return null
 
-  const [row] = await sql<{ cfi: string | null; percentage: number }[]>`
-    SELECT rp.cfi, rp.percentage
+  const [row] = await sql<{ cfi: string | null; percentage: number; lastReadAt: string }[]>`
+    SELECT rp.cfi, rp.percentage, rp.last_read_at::text AS "lastReadAt"
     FROM reading_progress rp
     JOIN users u ON u.id = rp.user_id
     JOIN books b ON b.id = rp.book_id
@@ -25,6 +28,8 @@ export async function saveReadingProgress(
 ): Promise<void> {
   const session = await auth()
   if (!session?.user?.email) return
+
+  await ensureBookRecord(slug)
 
   await sql`
     INSERT INTO reading_progress (user_id, book_id, cfi, percentage, last_read_at)

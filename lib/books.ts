@@ -5,7 +5,12 @@ export type Book = {
   year: number
   description: string
   seSlug: string      // Standard Ebooks URL slug (for download script)
-  goodreadsRating: number  // Goodreads average rating (out of 5)
+  goodreadsRating: {
+    value: number      // Goodreads average rating (out of 5)
+    asOf: string       // Date this manually curated snapshot was checked
+    count?: number
+    url?: string
+  }
 }
 
 export const books: Book[] = [
@@ -16,7 +21,10 @@ export const books: Book[] = [
     year: 1813,
     description: "A witty story of love, marriage, and social manners in Regency-era England.",
     seSlug: "jane-austen/pride-and-prejudice",
-    goodreadsRating: 4.28,
+    goodreadsRating: {
+      value: 4.28,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "sense-and-sensibility",
@@ -25,7 +33,10 @@ export const books: Book[] = [
     year: 1811,
     description: "Two sisters navigate love and heartbreak with contrasting temperaments.",
     seSlug: "jane-austen/sense-and-sensibility",
-    goodreadsRating: 4.08,
+    goodreadsRating: {
+      value: 4.08,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "frankenstein",
@@ -34,7 +45,10 @@ export const books: Book[] = [
     year: 1818,
     description: "A scientist creates life only to abandon his creation, with terrifying consequences.",
     seSlug: "mary-shelley/frankenstein",
-    goodreadsRating: 3.99,
+    goodreadsRating: {
+      value: 3.99,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "dracula",
@@ -43,7 +57,10 @@ export const books: Book[] = [
     year: 1897,
     description: "A Transylvanian count spreads his dark curse across Victorian England.",
     seSlug: "bram-stoker/dracula",
-    goodreadsRating: 4.02,
+    goodreadsRating: {
+      value: 4.02,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "the-picture-of-dorian-gray",
@@ -52,7 +69,10 @@ export const books: Book[] = [
     year: 1890,
     description: "A beautiful young man preserves his youth in a portrait while his soul decays.",
     seSlug: "oscar-wilde/the-picture-of-dorian-gray",
-    goodreadsRating: 4.11,
+    goodreadsRating: {
+      value: 4.11,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "jekyll-and-hyde",
@@ -61,7 +81,10 @@ export const books: Book[] = [
     year: 1886,
     description: "A respected doctor harbours a terrifying alter ego lurking beneath the surface.",
     seSlug: "robert-louis-stevenson/the-strange-case-of-dr-jekyll-and-mr-hyde",
-    goodreadsRating: 3.97,
+    goodreadsRating: {
+      value: 3.97,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "treasure-island",
@@ -70,7 +93,10 @@ export const books: Book[] = [
     year: 1883,
     description: "A young boy embarks on a swashbuckling pirate adventure in search of buried gold.",
     seSlug: "robert-louis-stevenson/treasure-island",
-    goodreadsRating: 3.83,
+    goodreadsRating: {
+      value: 3.83,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "moby-dick",
@@ -79,7 +105,10 @@ export const books: Book[] = [
     year: 1851,
     description: "Captain Ahab's obsessive hunt for the white whale that claimed his leg.",
     seSlug: "herman-melville/moby-dick",
-    goodreadsRating: 3.54,
+    goodreadsRating: {
+      value: 3.54,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "huckleberry-finn",
@@ -88,7 +117,10 @@ export const books: Book[] = [
     year: 1884,
     description: "A boy and a runaway slave journey down the Mississippi River toward freedom.",
     seSlug: "mark-twain/the-adventures-of-huckleberry-finn",
-    goodreadsRating: 3.84,
+    goodreadsRating: {
+      value: 3.84,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "alices-adventures-in-wonderland",
@@ -97,7 +129,10 @@ export const books: Book[] = [
     year: 1865,
     description: "A curious girl falls down a rabbit hole into a world of glorious nonsense.",
     seSlug: "lewis-carroll/alices-adventures-in-wonderland/john-tenniel",
-    goodreadsRating: 4.02,
+    goodreadsRating: {
+      value: 4.02,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "crime-and-punishment",
@@ -106,7 +141,10 @@ export const books: Book[] = [
     year: 1866,
     description: "A student commits murder and is slowly consumed by guilt and psychological torment.",
     seSlug: "fyodor-dostoevsky/crime-and-punishment/constance-garnett",
-    goodreadsRating: 4.25,
+    goodreadsRating: {
+      value: 4.25,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "anna-karenina",
@@ -115,7 +153,10 @@ export const books: Book[] = [
     year: 1878,
     description: "A married aristocrat risks everything for a passionate and forbidden love.",
     seSlug: "leo-tolstoy/anna-karenina/constance-garnett",
-    goodreadsRating: 4.02,
+    goodreadsRating: {
+      value: 4.02,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "the-time-machine",
@@ -124,7 +165,10 @@ export const books: Book[] = [
     year: 1895,
     description: "A Victorian inventor travels far into the future to find humanity strangely divided.",
     seSlug: "h-g-wells/the-time-machine",
-    goodreadsRating: 3.91,
+    goodreadsRating: {
+      value: 3.91,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "the-war-of-the-worlds",
@@ -133,7 +177,10 @@ export const books: Book[] = [
     year: 1898,
     description: "Martians invade England, laying waste to everything in their path.",
     seSlug: "h-g-wells/the-war-of-the-worlds",
-    goodreadsRating: 3.89,
+    goodreadsRating: {
+      value: 3.89,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "the-invisible-man",
@@ -142,7 +189,10 @@ export const books: Book[] = [
     year: 1897,
     description: "A scientist discovers invisibility, but the power leads only to isolation and madness.",
     seSlug: "h-g-wells/the-invisible-man",
-    goodreadsRating: 3.71,
+    goodreadsRating: {
+      value: 3.71,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "the-call-of-the-wild",
@@ -151,7 +201,10 @@ export const books: Book[] = [
     year: 1903,
     description: "A domesticated dog is thrust into the brutal wilderness of the Yukon Gold Rush.",
     seSlug: "jack-london/the-call-of-the-wild",
-    goodreadsRating: 3.90,
+    goodreadsRating: {
+      value: 3.90,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "around-the-world-in-eighty-days",
@@ -160,7 +213,10 @@ export const books: Book[] = [
     year: 1872,
     description: "An unflappable English gentleman bets he can circumnavigate the globe in eighty days.",
     seSlug: "jules-verne/around-the-world-in-eighty-days/george-makepeace-towle",
-    goodreadsRating: 3.91,
+    goodreadsRating: {
+      value: 3.91,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "the-count-of-monte-cristo",
@@ -169,7 +225,10 @@ export const books: Book[] = [
     year: 1844,
     description: "A falsely imprisoned man escapes and engineers an elaborate, patient revenge.",
     seSlug: "alexandre-dumas/the-count-of-monte-cristo/chapman-and-hall",
-    goodreadsRating: 4.34,
+    goodreadsRating: {
+      value: 4.34,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "sherlock-holmes",
@@ -178,7 +237,10 @@ export const books: Book[] = [
     year: 1892,
     description: "Twelve tales of brilliant deduction from literature's greatest detective.",
     seSlug: "arthur-conan-doyle/the-adventures-of-sherlock-holmes",
-    goodreadsRating: 4.32,
+    goodreadsRating: {
+      value: 4.32,
+      asOf: "2026-05-09",
+    },
   },
   {
     slug: "les-miserables",
@@ -187,7 +249,10 @@ export const books: Book[] = [
     year: 1862,
     description: "An ex-convict's decades-long struggle for redemption in 19th-century France.",
     seSlug: "victor-hugo/les-miserables/isabel-f-hapgood",
-    goodreadsRating: 4.19,
+    goodreadsRating: {
+      value: 4.19,
+      asOf: "2026-05-09",
+    },
   },
 ]
 

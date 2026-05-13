@@ -1,5 +1,7 @@
 import { Suspense } from "react"
 import { books } from "@/lib/books"
+import { auth } from "@/lib/auth"
+import { getReadingProgressMap, getReadLaterSlugs } from "@/lib/read-later"
 import BookCard from "@/components/book-card"
 import BooksFilters from "@/components/books-filters"
 
@@ -9,8 +11,18 @@ type SearchParams = Promise<{
   year?: string
 }>
 
-export default async function BooksPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function BooksPage({
+  searchParams,
+}: {
+  searchParams: SearchParams
+}) {
   const { q, rating, year } = await searchParams
+  const session = await auth()
+  const readLaterSlugs = session ? await getReadLaterSlugs() : []
+  const progressMap = session
+    ? await getReadingProgressMap()
+    : new Map<string, number>()
+  const readLaterSet = new Set(readLaterSlugs)
 
   const filtered = books.filter((book) => {
     // Text search
@@ -19,16 +31,20 @@ export default async function BooksPage({ searchParams }: { searchParams: Search
       if (
         !book.title.toLowerCase().includes(needle) &&
         !book.author.toLowerCase().includes(needle)
-      ) return false
+      )
+        return false
     }
     // Rating
-    if (rating && book.goodreadsRating < parseFloat(rating)) return false
+    if (rating && book.goodreadsRating.value < parseFloat(rating)) return false
     // Year range
     if (year) {
-      if (year === "pre1800"   && book.year >= 1800) return false
-      if (year === "1800-1850" && (book.year < 1800 || book.year > 1850)) return false
-      if (year === "1850-1900" && (book.year < 1850 || book.year > 1900)) return false
-      if (year === "1900-1930" && (book.year < 1900 || book.year > 1930)) return false
+      if (year === "pre1800" && book.year >= 1800) return false
+      if (year === "1800-1850" && (book.year < 1800 || book.year > 1850))
+        return false
+      if (year === "1850-1900" && (book.year < 1850 || book.year > 1900))
+        return false
+      if (year === "1900-1930" && (book.year < 1900 || book.year > 1930))
+        return false
     }
 
     return true
@@ -39,7 +55,7 @@ export default async function BooksPage({ searchParams }: { searchParams: Search
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-semibold tracking-tight">Books</h1>
-        <p className="text-muted-foreground mt-2 text-sm">
+        <p className="mt-2 text-sm text-muted-foreground">
           Classic works, free to read — all public domain.
         </p>
       </div>
@@ -63,15 +79,17 @@ export default async function BooksPage({ searchParams }: { searchParams: Search
               author={book.author}
               year={book.year}
               goodreadsRating={book.goodreadsRating}
+              readingProgress={progressMap.get(book.slug) ?? 0}
+              readLaterEnabled={Boolean(session)}
+              isReadLater={readLaterSet.has(book.slug)}
             />
           ))}
         </div>
       ) : (
-        <p className="text-muted-foreground py-16 text-center text-sm">
+        <p className="py-16 text-center text-sm text-muted-foreground">
           No books match your filters.
         </p>
       )}
     </div>
   )
 }
-

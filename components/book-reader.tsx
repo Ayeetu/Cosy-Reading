@@ -2,8 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { ArrowLeft, BookOpen, ChevronLeft, ChevronRight, SlidersHorizontal, X } from "lucide-react"
 import { getReadingProgress, saveReadingProgress } from "@/app/books/[book]/read/actions"
+import { useReadLaterShelf } from "@/components/read-later-shelf"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -18,6 +20,7 @@ type ReaderSettings = {
 }
 
 type TocItem = { id: string; href: string; label: string; subitems?: TocItem[] }
+type StoredPosition = { cfi: string; percentage?: number; updatedAt?: number }
 
 // ─── Presets ─────────────────────────────────────────────────────────────────
 
@@ -94,15 +97,49 @@ function loadSettings(): ReaderSettings {
   return { ...DEFAULT_SETTINGS, theme: detectDarkMode() ? THEMES[2] : THEMES[0] }
 }
 
+// epubjs can leave a rendition object present while its internal manager is
+// already gone during route transitions. Treat resize as best-effort.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function safeResize(rendition: any, width: number, height: number) {
+  if (!rendition || typeof rendition.resize !== "function") return
+
+  try {
+    rendition.resize(width, height)
+  } catch {}
+}
+
+function normalizeReaderProgress(percentage: number) {
+  return Math.max(0, Math.min(100, Math.round(percentage > 1 ? percentage : percentage * 100)))
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function waitForContentFonts(container: HTMLDivElement) {
+  const iframe = container.querySelector("iframe") as HTMLIFrameElement | null
+  const fonts = iframe?.contentDocument?.fonts
+
+  if (!fonts?.ready) return
+
+  await Promise.race([fonts.ready.catch(() => {}), wait(1500)])
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function BookReader({ slug, title }: { slug: string; title: string }) {
+  const router = useRouter()
+  const { updateBookProgress } = useReadLaterShelf()
   const containerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const renditionRef = useRef<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const bookRef = useRef<any>(null)
   const settingsRef = useRef<ReaderSettings>(DEFAULT_SETTINGS)
+  const latestPositionRef = useRef<{ cfi: string; percentage: number } | null>(null)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const savePromiseRef = useRef<Promise<void> | null>(null)
+  const restoringRef = useRef(false)
   const [progress, setProgress] = useState(0)
   const [pageNum, setPageNum] = useState<{ page: number; total: number } | null>(null)
   const [locationsReady, setLocationsReady] = useState(false)
@@ -111,6 +148,7 @@ export default function BookReader({ slug, title }: { slug: string; title: strin
   const [chaptersOpen, setChaptersOpen] = useState(false)
   const [chapters, setChapters] = useState<TocItem[]>([])
   const [settings, setSettings] = useState<ReaderSettings>(DEFAULT_SETTINGS)
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [showTutorial, setShowTutorial] = useState(false)
 
   // Derive the current chapter label from the TOC using currentHref
@@ -120,7 +158,10 @@ export default function BookReader({ slug, title }: { slug: string; title: strin
 
   // Load settings from localStorage on mount (client only)
   useEffect(() => {
-    setSettings(loadSettings())
+    const loadedSettings = loadSettings()
+    settingsRef.current = loadedSettings
+    setSettings(loadedSettings)
+    setSettingsLoaded(true)
     // Show tutorial on first visit
     try {
       if (!localStorage.getItem("cosy-reader-tutorial-seen")) setShowTutorial(true)
@@ -129,11 +170,77 @@ export default function BookReader({ slug, title }: { slug: string; title: strin
 
   // Persist settings whenever they change
   useEffect(() => {
+    if (!settingsLoaded) return
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)) } catch {}
-  }, [settings])
+  }, [settings, settingsLoaded])
+
+  const savePosition = useCallback(
+    (cfi: string, percentage: number, immediate = false) => {
+      const nextProgress = normalizeReaderProgress(percentage)
+      const currentProgress = latestPositionRef.current
+        ? normalizeReaderProgress(latestPositionRef.current.percentage)
+        : 0
+
+      if (nextProgress === 0 && currentProgress > 0) return null
+
+      latestPositionRef.current = { cfi, percentage }
+
+      try {
+        localStorage.setItem(
+          `cosy-reader-pos-${slug}`,
+          JSON.stringify({ cfi, percentage, updatedAt: Date.now() }),
+        )
+      } catch {}
+
+      updateBookProgress(slug, nextProgress)
+
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+
+      const run = () => {
+        const latest = latestPositionRef.current
+        if (!latest) return null
+
+        const promise = saveReadingProgress(slug, latest.cfi, latest.percentage).catch(() => {})
+        savePromiseRef.current = promise
+        return promise
+      }
+
+      if (immediate) return run()
+
+      saveTimerRef.current = setTimeout(run, 500)
+      return null
+    },
+    [slug, updateBookProgress],
+  )
+
+  const flushReadingProgress = useCallback(async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
+
+    const latest = latestPositionRef.current
+    if (latest) {
+      await saveReadingProgress(slug, latest.cfi, latest.percentage).catch(() => {})
+      return
+    }
+
+    await savePromiseRef.current
+  }, [slug])
+
+  const goBackToBook = useCallback(async () => {
+    await flushReadingProgress()
+    router.push(`/books/${slug}`)
+    router.refresh()
+  }, [flushReadingProgress, router, slug])
 
   // ── Initialise epubjs once ─────────────────────────────────────────────────
   useEffect(() => {
+    if (!settingsLoaded) return
+
     const container = containerRef.current
     if (!container) return
 
@@ -170,6 +277,12 @@ export default function BookReader({ slug, title }: { slug: string; title: strin
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       rendition.hooks.content.register((contents: any) => {
         const doc = contents.document as Document
+        const theme = settingsRef.current.theme
+
+        contents.window?.frameElement?.setAttribute(
+          "style",
+          `background-color: ${theme.bg}; color-scheme: ${theme.name === "Dark" ? "dark" : "light"};`,
+        )
 
         // Google Fonts: Atkinson Hyperlegible, Libre Baskerville, Inter
         const gLink = doc.createElement("link")
@@ -185,6 +298,8 @@ export default function BookReader({ slug, title }: { slug: string; title: strin
 
         const style = doc.createElement("style")
         style.textContent = `
+          ${buildRfoCSS(settingsRef.current)}
+
           img, svg, figure, table {
             max-width: 100% !important;
             height: auto !important;
@@ -218,11 +333,9 @@ export default function BookReader({ slug, title }: { slug: string; title: strin
         }
         // Auto-save position: localStorage always, DB when logged in
         const cfi = loc?.start?.cfi
-        if (cfi) {
+        if (cfi && !restoringRef.current) {
           const pct = typeof loc?.start?.percentage === "number" ? loc.start.percentage : 0
-          const posKey = `cosy-reader-pos-${slug}`
-          try { localStorage.setItem(posKey, JSON.stringify({ cfi, percentage: pct })) } catch {}
-          saveReadingProgress(slug, cfi, pct).catch(() => {})
+          savePosition(cfi, pct)
         }
       })
 
@@ -231,6 +344,8 @@ export default function BookReader({ slug, title }: { slug: string; title: strin
       const applyFont = () => {
         const iframe = container.querySelector("iframe") as HTMLIFrameElement | null
         if (!iframe?.contentDocument) return
+        iframe.style.backgroundColor = settingsRef.current.theme.bg
+        iframe.style.colorScheme = settingsRef.current.theme.name === "Dark" ? "dark" : "light"
         const doc = iframe.contentDocument
         let el = doc.getElementById("rfo") as HTMLStyleElement | null
         if (!el) {
@@ -245,22 +360,55 @@ export default function BookReader({ slug, title }: { slug: string; title: strin
 
       // Restore saved position: DB for logged-in users, localStorage otherwise
       let startCfi: string | null = null
+      let startPercentage = 0
       try {
         const dbPos = await getReadingProgress(slug)
-        if (dbPos?.cfi) {
+        const localRaw = localStorage.getItem(`cosy-reader-pos-${slug}`)
+        const localPos = localRaw
+          ? (JSON.parse(localRaw) as StoredPosition)
+          : null
+        const localUpdatedAt = localPos?.updatedAt ?? 0
+        const dbUpdatedAt = dbPos?.lastReadAt ? new Date(dbPos.lastReadAt).getTime() : 0
+
+        if (dbPos?.cfi && dbPos.percentage > 0) {
           startCfi = dbPos.cfi
-        } else {
-          const localRaw = localStorage.getItem(`cosy-reader-pos-${slug}`)
-          if (localRaw) startCfi = (JSON.parse(localRaw) as { cfi: string }).cfi
+          startPercentage = dbPos.percentage
+        }
+
+        if (localPos?.cfi && (localUpdatedAt >= dbUpdatedAt || !startCfi)) {
+          startCfi = localPos.cfi
+          startPercentage = localPos.percentage ?? 0
+        }
+
+        if (startCfi && startPercentage > 0) {
+          latestPositionRef.current = { cfi: startCfi, percentage: startPercentage }
+          const normalized = normalizeReaderProgress(startPercentage)
+          setProgress(normalized)
+          updateBookProgress(slug, normalized)
         }
       } catch {}
-
-      await (startCfi ? rendition.display(startCfi) : rendition.display())
 
       await book.ready
       // Load table of contents
       const toc: TocItem[] = (book.navigation?.toc ?? []) as TocItem[]
       if (!destroyed) setChapters(toc)
+      const startHref = findFirstChapterHref(toc)
+
+      restoringRef.current = Boolean(startCfi)
+      try {
+        await (startCfi ? rendition.display(startCfi) : rendition.display(startHref ?? undefined))
+
+        if (startCfi && !destroyed) {
+          await waitForContentFonts(container)
+          if (!destroyed) {
+            safeResize(rendition, container.offsetWidth || 800, container.offsetHeight || 600)
+            await rendition.display(startCfi)
+            await wait(100)
+          }
+        }
+      } finally {
+        restoringRef.current = false
+      }
 
       // Generate locations for global % — async, non-blocking
       book.locations.generate(1600).then(() => {
@@ -271,7 +419,7 @@ export default function BookReader({ slug, title }: { slug: string; title: strin
       const onResize = () => {
         const newW = container.offsetWidth || 800
         const newH = container.offsetHeight || 600
-        renditionRef.current?.resize(newW, newH)
+        safeResize(renditionRef.current, newW, newH)
       }
       window.addEventListener("resize", onResize)
       removeResize = () => window.removeEventListener("resize", onResize)
@@ -281,25 +429,34 @@ export default function BookReader({ slug, title }: { slug: string; title: strin
 
     return () => {
       destroyed = true
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+      const latest = latestPositionRef.current
+      if (latest) savePosition(latest.cfi, latest.percentage, true)
       removeResize()
       book?.destroy()
       renditionRef.current = null
       bookRef.current = null
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug])
+  }, [savePosition, settingsLoaded, slug, updateBookProgress])
 
   // ── Apply settings live whenever they change ────────────────────────────────
   useEffect(() => {
     settingsRef.current = settings
     const r = renditionRef.current
     if (!r) return
-    r.themes.override("background-color", settings.theme.bg)
-    r.themes.override("color",            settings.theme.text)
-    r.themes.override("font-size",        `${settings.fontSize}px`)
-    r.themes.override("line-height",      String(settings.lineHeight))
+    r.themes?.override?.("background-color", settings.theme.bg)
+    r.themes?.override?.("color",            settings.theme.text)
+    r.themes?.override?.("font-size",        `${settings.fontSize}px`)
+    r.themes?.override?.("line-height",      String(settings.lineHeight))
     // Inject font with !important directly — themes.override can't beat epub CSS specificity
     const iframe = containerRef.current?.querySelector("iframe") as HTMLIFrameElement | null
+    if (iframe) {
+      iframe.style.backgroundColor = settings.theme.bg
+      iframe.style.colorScheme = settings.theme.name === "Dark" ? "dark" : "light"
+    }
     if (iframe?.contentDocument) {
       let el = iframe.contentDocument.getElementById("rfo") as HTMLStyleElement | null
       if (!el) {
@@ -311,7 +468,7 @@ export default function BookReader({ slug, title }: { slug: string; title: strin
     }
     // When fontSize changes, the container's maxWidth changes → resize epubjs to match
     const c = containerRef.current
-    if (c) r.resize(c.offsetWidth, c.offsetHeight)
+    if (c) safeResize(r, c.offsetWidth, c.offsetHeight)
   }, [settings])
 
   // ── Keyboard navigation ─────────────────────────────────────────────────────
@@ -351,6 +508,10 @@ export default function BookReader({ slug, title }: { slug: string; title: strin
       >
         <Link
           href={`/books/${slug}`}
+          onClick={(event) => {
+            event.preventDefault()
+            void goBackToBook()
+          }}
           className="flex min-w-0 items-center gap-1.5 text-sm opacity-60 transition-opacity hover:opacity-100"
           style={{ color: theme.text }}
         >
@@ -728,6 +889,40 @@ function findChapterLabel(toc: TocItem[], href: string | null): string | null {
     }
   }
   return null
+}
+
+function findFirstChapterHref(toc: TocItem[]): string | null {
+  const readableItems = flattenToc(toc).filter((item) => !isFrontOrBackMatter(item))
+  const chapter = readableItems.find((item) => isChapterHref(item.href))
+  return chapter?.href ?? readableItems[0]?.href ?? null
+}
+
+function flattenToc(toc: TocItem[]): TocItem[] {
+  return toc.flatMap((item) => [item, ...flattenToc(item.subitems ?? [])])
+}
+
+function isChapterHref(href: string) {
+  const file = href.split("#")[0].split("/").pop()?.toLowerCase() ?? ""
+  return /^chapter-\d/.test(file) || /^book-\d+-\d/.test(file)
+}
+
+function isFrontOrBackMatter(item: TocItem) {
+  const text = `${item.href} ${item.label}`.toLowerCase()
+  return [
+    "titlepage",
+    "title page",
+    "halftitlepage",
+    "half title",
+    "imprint",
+    "dedication",
+    "epigraph",
+    "foreword",
+    "introduction",
+    "preface",
+    "colophon",
+    "uncopyright",
+    "afterword",
+  ].some((word) => text.includes(word))
 }
 
 function ChapterItem({

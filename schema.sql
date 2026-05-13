@@ -80,3 +80,15 @@ CREATE TABLE IF NOT EXISTS reading_progress (
 
   UNIQUE (user_id, book_id)
 );
+
+CREATE TABLE IF NOT EXISTS read_later_books (
+  id          TEXT        PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  user_id     TEXT        NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
+  book_id     TEXT        NOT NULL REFERENCES books(id)  ON DELETE CASCADE,
+  added_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  UNIQUE (user_id, book_id)
+);
+
+CREATE INDEX IF NOT EXISTS read_later_books_user_added_idx
+  ON read_later_books (user_id, added_at DESC);

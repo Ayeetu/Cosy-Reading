@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import ReadLaterButton from "@/components/read-later-button"
 
 type Props = {
   user: {
@@ -73,7 +74,15 @@ export default function MobileMenu({ user, signOutAction }: Props) {
           {user ? (
             // Logged in
             <>
-              <div className="flex items-center gap-3 px-3 py-2">
+              <div onClick={close}>
+                <ReadLaterButton className="h-11 w-full justify-start rounded-lg px-3" />
+              </div>
+
+              <Link
+                href="/dashboard"
+                onClick={close}
+                className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-muted transition-colors"
+              >
                 {user.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -92,7 +101,7 @@ export default function MobileMenu({ user, signOutAction }: Props) {
                   )}
                   <span className="text-muted-foreground truncate text-xs">{user.email}</span>
                 </div>
-              </div>
+              </Link>
 
               <form action={signOutAction}>
                 <button
